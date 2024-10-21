@@ -18,7 +18,7 @@ class PortScanner:
         ''')
         
         for port in range(self.startport, self.endport):
-            pkt = IP(dst=self.target) / TCP(dport=port, flags='S')  # Create a SYN packet
+            pkt = IP(dst=self.target) / TCP(dport=port, flags='S')
             resp = sr1(pkt, timeout=1, verbose=0)
 
             if resp is None:
