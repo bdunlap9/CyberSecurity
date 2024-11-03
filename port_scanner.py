@@ -127,13 +127,14 @@ class PortScanner:
                 response = sr1(IP(dst=ip) / TCP(dport=port, flags='A', sport=syn_ack[TCP].dport, seq=syn_ack[TCP].seq + 1) / Raw(load=request), timeout=1, verbose=0)
 
                 if response and hasattr(response, 'load'):
-                    return response.load.decode(errors='ignore').split('\r\n')[0]
+                    return response.load.decode(errors='ignore').strip()
 
                 if port in [21, 22, 110]:
                     if port == 21:
                         user_response = sr1(IP(dst=ip) / TCP(dport=port, flags='A', sport=syn_ack[TCP].dport, seq=syn_ack[TCP].seq + 1) / Raw(load=b"USER anonymous\r\n"), timeout=1, verbose=0)
                         pass_response = sr1(IP(dst=ip) / TCP(dport=port, flags='A', sport=syn_ack[TCP].dport, seq=user_response[TCP].seq + 1) / Raw(load=b"PASS anonymous\r\n"), timeout=1, verbose=0)
                         return f"FTP response: {pass_response.load.decode(errors='ignore') if pass_response else 'No response'}"
+
                     elif port == 22:
                         try:
                             syn_pkt = IP(dst=ip) / TCP(dport=port, flags='S')
@@ -149,12 +150,13 @@ class PortScanner:
 
                         except Exception as e:
                             return f'SSH Error: {e}'
+
                     elif port == 110:
                         user_response = sr1(IP(dst=ip) / TCP(dport=port, flags='A', sport=syn_ack[TCP].dport, seq=syn_ack[TCP].seq + 1) / Raw(load=b"USER root\r\n"), timeout=1, verbose=0)
                         pass_response = sr1(IP(dst=ip) / TCP(dport=port, flags='A', sport=syn_ack[TCP].dport, seq=user_response[TCP].seq + 1) / Raw(load=b"PASS root\r\n"), timeout=1, verbose=0)
                         return f"POP3 response: {pass_response.load.decode(errors='ignore') if pass_response else 'No response'}"
 
-                return 'Service detected but no specific response'
+            return 'Service detected but no specific response'
 
         return 'Unknown or unresponsive service'
 
@@ -165,11 +167,13 @@ class PortScanner:
             if response and response.haslayer(TCP) and response[TCP].flags == 0x12:
                 self.open_ports.append(port)
                 send(IP(dst=self.target) / TCP(dport=port, flags='R'))
-                
+
                 version = await self.detect_service_version(self.target, port)
-                print(f'{Fore.GREEN}Open port found: {port}, Service Version: {version}{Style.RESET_ALL}')
-                if port in self.exploits:
-                    print(f'{Fore.CYAN}Exploit available for port {port}: {self.exploits[port]}{Style.RESET_ALL}')
+                if "Unknown or unresponsive service" in version:
+                    print(f'{Fore.GREEN}Open port found: {port}, Service Version: {version}{Style.RESET_ALL}')
+                    print(f'{Fore.CYAN}Full Response: {version}{Style.RESET_ALL}')
+                else:
+                    print(f'{Fore.GREEN}Open port found: {port}, Service Version: {version}{Style.RESET_ALL}')
 
     def scan_ports_in_thread(self, port):
         loop = asyncio.new_event_loop()
